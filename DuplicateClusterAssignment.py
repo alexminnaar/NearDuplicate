@@ -7,7 +7,6 @@ from image_match.elasticsearch_driver import SignatureES
 from elasticsearch import Elasticsearch
 from pymemcache.client.base import Client
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -18,40 +17,6 @@ class DuplicateClusterAssignment:
         self.ses = SignatureES(self.es_client, index=es_index, distance_cutoff=distance_threshold)
         self.memcached_client = Client((memcached_endpoint, 11211))
 
-    def image_url_exists(self, image_url):
-        '''
-        check if image url already exists in elasticsearch.  Image url's are stored in the 'path' field. Returns boolean.
-        :param image_url: Query image url.
-        :return: Boolean (True if it exists, False if it doesn't).
-        '''
-
-        image_url_query = {
-            "query": {
-                "match": {
-                    "path": image_url
-                }
-            }
-        }
-
-        # not an extact match query but if there is an exact match it should be the first result, so manually check if
-        # the first result is equivalent to the query image url
-        res = self.es_client.search(index="images", body=image_url_query)
-        hits = res['hits']['hits']
-
-        if len(hits) > 0:
-            top_res = hits[0]['_source']['path']
-
-            # if there are results then this image url already exits in ES
-            if top_res == image_url:
-                logger.info("Image URL: %s found in elasticsearch" % image_url)
-                return True
-            else:
-                logger.info("Image URL: %s not found in elasticsearch" % image_url)
-                return False
-        else:
-            logger.info("Image URL: %s not found in elasticsearch" % image_url)
-            return False
-
     def get_near_duplicates(self, image_url):
         '''
         Given an image url, find its near-duplicates using 'image-match' library.
@@ -59,12 +24,21 @@ class DuplicateClusterAssignment:
         :return: List of near-duplicates.
         '''
 
-        search_results = self.ses.search_image(image_url)
+        image_exists = False
 
-        logger.info("Found %d near-duplicates for image: %s" % (len(search_results), image_url))
+        search_results = [r for r in self.ses.search_image(image_url)]
 
-        # cluster ids are part of 'metadata' field
-        return [res['metadata'] for res in search_results]
+        if len(search_results) > 0:
+            for res in search_results:
+                if res['path'] == image_url:
+                    image_exists = True
+                    logger.info("This image is already stored in elasticsearch")
+
+        if not image_exists:
+            logger.info("Found %d near-duplicates for image: %s" % (len(search_results), image_url))
+            logger.info("Near-duplicate: %s" % [r['path'] for r in search_results])
+
+        return [image_exists, [res['metadata'] for res in search_results]]
 
     def index_image_with_clusterid(self, image_url, image_clusterid):
         '''
@@ -100,11 +74,9 @@ class DuplicateClusterAssignment:
             logger.info("No near-duplicates so assigning random cluster id")
             return random_cluster_id
 
-
     def memcached_insert(self, key, value):
 
         self.memcached_client.set('%s' % hashlib.md5(key).hexdigest(), str(value))
-
 
     def insert_and_cluster(self, image_url):
         '''
@@ -116,17 +88,14 @@ class DuplicateClusterAssignment:
         :param image_url: Image url to be clustered and indexed.
         '''
 
-        if not self.image_url_exists(image_url):
-
-            try:
-                near_dups = self.get_near_duplicates(image_url)
+        try:
+            image_exists, near_dups = self.get_near_duplicates(image_url)
+            if not image_exists:
                 cluster_id = self.get_cluster_id(near_dups)
                 self.index_image_with_clusterid(image_url, image_clusterid=cluster_id)
                 self.memcached_insert(image_url,cluster_id)
-            except Exception:
-                logger.error("Indexing pipeline failure", exc_info=True)
-        else:
-            logger.info("Exiting because image already exists in elasticsearch")
+        except Exception:
+            logger.error("Indexing pipeline failure", exc_info=True)
 
 
 def main():
