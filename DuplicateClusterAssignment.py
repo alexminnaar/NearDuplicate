@@ -26,7 +26,7 @@ class DuplicateClusterAssignment:
 
         image_exists = False
 
-        search_results = [r for r in self.ses.search_image(image_url)]
+        search_results = self.ses.search_image(image_url)
 
         if len(search_results) > 0:
             for res in search_results:
@@ -93,7 +93,7 @@ class DuplicateClusterAssignment:
             if not image_exists:
                 cluster_id = self.get_cluster_id(near_dups)
                 self.index_image_with_clusterid(image_url, image_clusterid=cluster_id)
-                self.memcached_insert(image_url,cluster_id)
+                #self.memcached_insert(image_url,cluster_id)
         except Exception:
             logger.error("Indexing pipeline failure", exc_info=True)
 
