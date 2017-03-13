@@ -3,7 +3,7 @@ from collections import defaultdict
 import logging
 import hashlib
 
-from image_match.elasticsearch_driver import SignatureES
+from viglink_image_match.elasticsearch_driver import SignatureES
 from elasticsearch import Elasticsearch
 from pymemcache.client.base import Client
 

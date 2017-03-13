@@ -1,5 +1,5 @@
 import logging
-
+import sys
 import boto3
 
 from DuplicateClusterAssignment import DuplicateClusterAssignment
@@ -29,7 +29,11 @@ def sqs_polling(queue_name, memcache_endpoint):
 
 
 def main():
-    sqs_polling('image-similarity-qa', 'localhost')
+
+    queue_name=sys.argv[1]
+    memcached_endpoint=sys.argv[2]
+
+    sqs_polling(queue_name, memcached_endpoint)
 
 
 if __name__ == "__main__":
