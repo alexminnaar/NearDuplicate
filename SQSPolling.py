@@ -3,8 +3,10 @@ import sys
 import boto3
 import multiprocessing
 from DuplicateClusterAssignment import DuplicateClusterAssignment
+from time import sleep
 
-logging.basicConfig(level=logging.WARNING)
+LOG_FILENAME = "sqs_polling.log"
+logging.basicConfig(filename=LOG_FILENAME, level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
@@ -23,56 +25,53 @@ def sqs_polling(queue_name, memcached_endpoint, process_id):
 
             image_url = message.body
 
-            # cluster image and insert to memcached
-            dca.insert_and_cluster(image_url)
+            try:
+                # cluster image and insert to memcached
+                dca.insert_and_cluster(image_url)
+            except Exception:
+                logger.error("Process %d: Failed to write to memcached" % process_id, exc_info=True)
+
+            message.delete()
 
 
 def main():
     queue_name = sys.argv[1]
     memcached_endpoint = sys.argv[2]
 
-    sqs_polling(queue_name, memcached_endpoint)
+    # keep track of processes to restart if needed. PID => Process
+    processes = {}
 
-    p1 = multiprocessing.Process(
-        target=sqs_polling, args=(queue_name, memcached_endpoint, 1,))
-    p1.start()
+    num_processes = range(1, 9)
 
-    p2 = multiprocessing.Process(
-        target=sqs_polling, args=(queue_name, memcached_endpoint, 2,))
-    p2.start()
+    for p_num in num_processes:
+        p = multiprocessing.Process(
+            target=sqs_polling, args=(queue_name, memcached_endpoint, p_num,))
+        p.start()
+        processes[p_num] = p
 
-    p3 = multiprocessing.Process(
-        target=sqs_polling, args=(queue_name, memcached_endpoint, 3,))
-    p3.start()
+    # periodically poll child processes to check if they are still alive
+    while len(processes) > 0:
 
-    p4 = multiprocessing.Process(
-        target=sqs_polling, args=(queue_name, memcached_endpoint, 4,))
-    p4.start()
+        # check every 5 minutes
+        sleep(300.0)
 
-    p5 = multiprocessing.Process(
-        target=sqs_polling, args=(queue_name, memcached_endpoint, 5,))
-    p5.start()
+        for n in processes.keys():
+            p = processes[n]
 
-    p6 = multiprocessing.Process(
-        target=sqs_polling, args=(queue_name, memcached_endpoint, 6,))
-    p6.start()
+            # if process is dead, create a new one to take its place
+            if not p.is_alive():
+                logger.error('Process %d is dead! Starting new process to take its place.' % n)
+                replacement_p = multiprocessing.Process(target=sqs_polling,
+                                                        args=(queue_name, memcached_endpoint, n,))
+                replacement_p.start()
+                processes[n] = replacement_p
 
-    p7 = multiprocessing.Process(
-        target=sqs_polling, args=(queue_name, memcached_endpoint, 7,))
-    p7.start()
+            elif p.is_alive():
+                logger.warning('Process %d is still alive' % n)
 
-    p8 = multiprocessing.Process(
-        target=sqs_polling, args=(queue_name, memcached_endpoint, 8,))
-    p8.start()
-
-    p1.join()
-    p2.join()
-    p3.join()
-    p4.join()
-    p5.join()
-    p6.join()
-    p7.join()
-    p8.join()
+            # since polling never ends, sqs_polling should never successfully exit but we add this for completeness
+            elif p.exitcode == 0:
+                p.join()
 
 
 if __name__ == "__main__":
