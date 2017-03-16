@@ -5,22 +5,40 @@ import multiprocessing
 from DuplicateClusterAssignment import DuplicateClusterAssignment
 from time import sleep
 
-LOG_FILENAME = "sqs_polling.log"
-logging.basicConfig(filename=LOG_FILENAME, level=logging.WARNING)
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-def sqs_polling(queue_name, memcached_endpoint, process_id):
+def sqs_polling(queue_name, memcached_endpoint, es_endpoint, process_id):
     # SQS client config
     sqs = boto3.resource('sqs', region_name='us-east-1')
     queue = sqs.get_queue_by_name(QueueName=queue_name)
 
-    dca = DuplicateClusterAssignment(es_index='images', distance_threshold=0.3, memcached_endpoint=memcached_endpoint)
+    dca = DuplicateClusterAssignment(elasticsearch_endpoint=es_endpoint, es_index='images', distance_threshold=0.3,
+                                     memcached_endpoint=memcached_endpoint)
+
+    no_messages = False
 
     # poll sqs forever
     while 1:
+
+        # polling delay so aws does not throttle us
+        sleep(2.0)
+
+        # sleep longer if there are no messages on the queue the last time it was polled
+        if no_messages:
+            sleep(900.0)
+
+        # get next batch of messages (up to 10 at a time)
+        message_batch = queue.receive_messages(MaxNumberOfMessages=10, WaitTimeSeconds=20)
+
+        if len(message_batch) == 0:
+            no_messages = True
+        else:
+            no_messages = False
+
         # receives up to 10 messages at a time
-        for message in queue.receive_messages():
+        for message in message_batch:
             logger.warning("Process %d: Read message: %s" % (process_id, message.body))
 
             image_url = message.body
@@ -37,6 +55,7 @@ def sqs_polling(queue_name, memcached_endpoint, process_id):
 def main():
     queue_name = sys.argv[1]
     memcached_endpoint = sys.argv[2]
+    es_endpoint = sys.argv[3]
 
     # keep track of processes to restart if needed. PID => Process
     processes = {}
@@ -45,7 +64,7 @@ def main():
 
     for p_num in num_processes:
         p = multiprocessing.Process(
-            target=sqs_polling, args=(queue_name, memcached_endpoint, p_num,))
+            target=sqs_polling, args=(queue_name, memcached_endpoint, es_endpoint, p_num,))
         p.start()
         processes[p_num] = p
 
