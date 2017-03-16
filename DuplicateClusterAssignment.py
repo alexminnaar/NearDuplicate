@@ -12,8 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 class DuplicateClusterAssignment:
-    def __init__(self, es_index, distance_threshold, memcached_endpoint):
-        self.es_client = Elasticsearch()
+    def __init__(self, elasticsearch_endpoint, es_index, distance_threshold, memcached_endpoint):
+        self.es_client = Elasticsearch(hosts=[{'host': elasticsearch_endpoint, 'port': 9200}])
+
+        # if images index does not exist, create it
+        indeces = self.es_client.indices.get_aliases().keys()
+
+        if 'images' not in indeces:
+            self.es_client.indices.create(index="images", ignore=400)
+
         self.ses = SignatureES(self.es_client, index=es_index, distance_cutoff=distance_threshold)
         self.memcached_client = Client((memcached_endpoint, 11211))
 
@@ -93,7 +100,7 @@ class DuplicateClusterAssignment:
             if not image_exists:
                 cluster_id = self.get_cluster_id(near_dups)
                 self.index_image_with_clusterid(image_url, image_clusterid=cluster_id)
-                self.memcached_insert(image_url,cluster_id)
+                self.memcached_insert(image_url, cluster_id)
         except Exception:
             logger.error("Indexing pipeline failure", exc_info=True)
 
