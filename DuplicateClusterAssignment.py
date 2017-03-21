@@ -16,7 +16,7 @@ class DuplicateClusterAssignment:
         self.es_client = Elasticsearch(hosts=[{'host': elasticsearch_endpoint, 'port': 9200}])
 
         # if images index does not exist, create it
-        indeces = self.es_client.indices.get_aliases().keys()
+        indeces = self.es_client.indices.get('*').keys()
 
         if 'images' not in indeces:
             self.es_client.indices.create(index="images", ignore=400)
