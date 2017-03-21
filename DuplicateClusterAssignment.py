@@ -57,7 +57,7 @@ class DuplicateClusterAssignment:
         logger.info("Indexing image: %s with cluster id %s" % (image_url, str(image_clusterid)))
         self.ses.add_image(image_url, metadata={'clusterid': image_clusterid})
 
-    def get_cluster_id(self, near_duplicates):
+    def get_cluster_id(self, near_duplicates, image_url):
         '''
         Given the cluster ids of a set of near-duplicates, compute cluster id by majority vote.
         :param near_duplicates: a set of near-duplicates to some query image.
@@ -77,7 +77,7 @@ class DuplicateClusterAssignment:
             logger.info("Cluster majority vote winner: %s" % str(vote_winner))
             return vote_winner
         else:
-            random_cluster_id = uuid.uuid4()
+            random_cluster_id = hashlib.md5(image_url).hexdigest()
             logger.info("No near-duplicates so assigning random cluster id")
             return random_cluster_id
 
@@ -98,7 +98,7 @@ class DuplicateClusterAssignment:
         try:
             image_exists, near_dups = self.get_near_duplicates(image_url)
             if not image_exists:
-                cluster_id = self.get_cluster_id(near_dups)
+                cluster_id = self.get_cluster_id(near_dups, image_url)
                 self.index_image_with_clusterid(image_url, image_clusterid=cluster_id)
                 self.memcached_insert(image_url, cluster_id)
         except Exception:

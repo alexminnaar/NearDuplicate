@@ -49,7 +49,8 @@ def sqs_polling(queue_name, memcached_endpoint, es_endpoint, process_id):
             except Exception:
                 logger.error("Process %d: Failed to write to memcached" % process_id, exc_info=True)
 
-            message.delete()
+            finally:
+                message.delete()
 
 
 def main():
