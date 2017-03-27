@@ -82,7 +82,7 @@ def main():
             if not p.is_alive():
                 logger.error('Process %d is dead! Starting new process to take its place.' % n)
                 replacement_p = multiprocessing.Process(target=sqs_polling,
-                                                        args=(queue_name, memcached_endpoint, n,))
+                                                        args=(queue_name, memcached_endpoint, es_endpoint, n,))
                 replacement_p.start()
                 processes[n] = replacement_p
 
