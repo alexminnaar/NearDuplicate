@@ -105,16 +105,16 @@ class DuplicateClusterAssignment:
             logger.error("Indexing pipeline failure", exc_info=True)
 
 
-def main():
-    es = Elasticsearch()
-    # es.indices.delete(index='images', ignore=[400, 404])
-    # es.indices.create(index='images')
-
-    dca = DuplicateClusterAssignment(es_index='images', distance_threshold=0.3, memcached_endpoint='localhost')
-
-    dca.insert_and_cluster(
-        image_url="https://images.viglink.com/product/250x250/images-footaction-com/20d7125041a8c808e798e933741511cb66f3a7ee.jpg?url=http%3A%2F%2Fimages.footaction.com%2Fis%2FBA8920%2Flarge_wide%2Fadidas-ultra-boost-mens%2F")
-
-
-if __name__ == "__main__":
-    main()
+# def main():
+#     es = Elasticsearch()
+#     # es.indices.delete(index='images', ignore=[400, 404])
+#     # es.indices.create(index='images')
+#
+#     dca = DuplicateClusterAssignment(es_index='images', distance_threshold=0.3, memcached_endpoint='localhost')
+#
+#     dca.insert_and_cluster(
+#         image_url="https://images.viglink.com/product/250x250/images-footaction-com/20d7125041a8c808e798e933741511cb66f3a7ee.jpg?url=http%3A%2F%2Fimages.footaction.com%2Fis%2FBA8920%2Flarge_wide%2Fadidas-ultra-boost-mens%2F")
+#
+#
+# if __name__ == "__main__":
+#     main()

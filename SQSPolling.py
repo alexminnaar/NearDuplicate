@@ -22,9 +22,6 @@ def sqs_polling(queue_name, memcached_endpoint, es_endpoint, process_id):
     # poll sqs forever
     while 1:
 
-        # polling delay so aws does not throttle us
-        sleep(2.0)
-
         # sleep longer if there are no messages on the queue the last time it was polled
         if no_messages:
             sleep(900.0)
@@ -50,7 +47,9 @@ def sqs_polling(queue_name, memcached_endpoint, es_endpoint, process_id):
                 logger.error("Process %d: Failed to write to memcached" % process_id, exc_info=True)
 
             finally:
-                message.delete()
+                # TODO: not deleting message for testing purposes. Change this when finished testing
+                # message.delete()
+                logger.warning("Process %d: message processed" % process_id)
 
 
 def main():
@@ -61,7 +60,8 @@ def main():
     # keep track of processes to restart if needed. PID => Process
     processes = {}
 
-    num_processes = range(1, 9)
+    # TODO: only launching one process for testing purposes.  Change this when finished testing
+    num_processes = range(1, 2)
 
     for p_num in num_processes:
         p = multiprocessing.Process(
