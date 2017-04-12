@@ -14,7 +14,7 @@ def sqs_polling(queue_name, memcached_endpoint, es_endpoint, process_id):
     sqs = boto3.resource('sqs', region_name='us-east-1')
     queue = sqs.get_queue_by_name(QueueName=queue_name)
 
-    dca = DuplicateClusterAssignment(elasticsearch_endpoint=es_endpoint, es_index='images', distance_threshold=0.2,
+    dca = DuplicateClusterAssignment(elasticsearch_endpoint=es_endpoint, es_index='images_0.1', distance_threshold=0.1,
                                      memcached_endpoint=memcached_endpoint)
 
     no_messages = False
