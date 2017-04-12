@@ -85,7 +85,7 @@ class DuplicateClusterAssignment:
 
         self.memcached_client.set('%s' % hashlib.md5(key).hexdigest(), str(value))
 
-    def insert_and_cluster(self, image_url):
+    def insert_and_cluster(self, image_url, memcached_persist=False):
         '''
         Given an image url,
             1.  Get image's near-duplicates.
@@ -93,6 +93,7 @@ class DuplicateClusterAssignment:
             3.  Based on (1), (2), index image and assigned cluster id.
 
         :param image_url: Image url to be clustered and indexed.
+        :param memcached_persist: boolean whether to write cluster id to memcached.
         '''
 
         try:
@@ -100,10 +101,11 @@ class DuplicateClusterAssignment:
             if not image_exists:
                 cluster_id = self.get_cluster_id(near_dups, image_url)
                 self.index_image_with_clusterid(image_url, image_clusterid=cluster_id)
-                self.memcached_insert(image_url, cluster_id)
+
+                if memcached_persist:
+                    self.memcached_insert(image_url, cluster_id)
         except Exception:
             logger.error("Indexing pipeline failure", exc_info=True)
-
 
 # def main():
 #     es = Elasticsearch()
