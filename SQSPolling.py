@@ -5,7 +5,7 @@ import multiprocessing
 from DuplicateClusterAssignment import DuplicateClusterAssignment
 from time import sleep
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.WARNING, format='%(asctime)s %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +41,7 @@ def sqs_polling(queue_name, memcached_endpoint, es_endpoint, process_id):
             image_url = message.body
 
             try:
-                # cluster image and insert to memcached
+                # cluster image
                 dca.insert_and_cluster(image_url)
             except Exception:
                 logger.error("Process %d: Failed to write to memcached" % process_id, exc_info=True)
